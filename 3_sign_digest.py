@@ -8,11 +8,13 @@ from termcolor import colored
 
 # Generate 1024 bit asymmetric keys
 # TODO: Task 3-1
-private_key = None
-
+private_key = rsa.generate_private_key(
+    public_exponent=65537,
+    key_size=1024,
+)
 # Extract the RSAPublicKey instance
 # TODO: Task 3-2
-public_key = None
+public_key = private_key.public_key()
 
 
 def enc_digest(filename):
@@ -22,20 +24,37 @@ def enc_digest(filename):
 
     # Create a Hash instance
     # TODO: Task 3-3
-
+    hash_function = hashes.Hash(hashes.SHA256())
     # Hash the file data to produce the message digest
     # TODO: Task 3-4
-    message_digest_bytes = None
+    hash_function.update(file_data)
+    message_digest_bytes = hash_function.finalize() # 32 bytes
 
     print("hash_bytes", message_digest_bytes)
 
     # Encrypt the message digest
     # TODO: Task 3-5
-    encrypted_message_digest_bytes = None
+    encrypted_message_digest_bytes = public_key.encrypt(
+            message_digest_bytes,
+            padding.OAEP(
+                mgf=padding.MGF1(hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None,
+                ),
+            )
 
     # Decrypt the message digest back
     # TODO: Task 3-6
-    decrypted_message_digest_bytes = None
+    decrypted_message_digest_bytes = private_key.decrypt( # 128 bytes long
+                                                         encrypted_message_digest_bytes,
+                                                         padding.OAEP(
+                                                             mgf=padding.MGF1(hashes.SHA256()),
+                                                             algorithm=hashes.SHA256(),
+                                                             label=None,
+                                                             ),
+                                                         )
+
+    assert decrypted_message_digest_bytes == message_digest_bytes
 
     try:
         print(
@@ -61,7 +80,14 @@ def sign_digest(filename):
 
     # Sign the message digest to produce a signature
     # TODO: Task 3-7
-    signature = None
+    signature = private_key.sign(
+            file_data,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH,
+                ),
+            hashes.SHA256(),
+            )
 
     try:
         print(f"Original data bytes length: {len(file_data)} bytes")
@@ -73,7 +99,15 @@ def sign_digest(filename):
     try:
         # Verify the authenticity of the signed digest using the public_key
         # TODO: Task 3-8
-        raise Exception("Task 3-8 not implemented")
+        public_key.verify(
+                signature,
+                file_data,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH,
+                    ),
+                hashes.SHA256(),
+                )
         print(colored("======= SIGNATURE VERIFIED =======", "yellow"))
     except Exception as e:
         traceback.print_exc()
